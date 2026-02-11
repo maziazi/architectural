@@ -1,17 +1,30 @@
+
+import { supabase } from "@/lib/supabase";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import Slider from "@react-native-community/slider";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+
+interface RecentProject {
+  id: string;
+  name: string;
+  building_type: string;
+  main_span: number;
+  created_at: string;
+  materials: {
+    name: string;
+  } | null;
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,7 +34,53 @@ export default function HomePage() {
   const [colSpacing, setColSpacing] = useState<number>(3);
   const [selectedFunction, setSelectedFunction] = useState("Hunian");
 
+  const [recentProject, setRecentProject] = useState<RecentProject | null>(null);
+
   const functions = ["Hunian", "Kantor", "Sekolah", "Publik"];
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecentProject();
+    }, [])
+  );
+
+  const fetchRecentProject = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*, materials(name)')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "The result contains 0 rows"
+        console.error("Error fetching recent project:", error);
+      } else if (data) {
+        setRecentProject(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const [colSpacingStr, setColSpacingStr] = useState("3.0000");
+  const [mainSpanStr, setMainSpanStr] = useState("3.0000");
+
+  const handleColTextChange = (text: string) => {
+    setColSpacingStr(text);
+    const val = parseFloat(text);
+    if (!isNaN(val)) {
+      setColSpacing(val);
+    }
+  };
+
+  const handleSpanTextChange = (text: string) => {
+    setMainSpanStr(text);
+    const val = parseFloat(text);
+    if (!isNaN(val)) {
+      setMainSpan(val);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -84,21 +143,15 @@ export default function HomePage() {
           <View style={styles.dimRow}>
             <View style={[styles.dimCard, { marginRight: 0 }]}>
               <View style={styles.dimHeader}>
-                <Text style={styles.dimLabel}>Jarak Kolom</Text>
-                <Text style={styles.dimValueRight}>
-                  {colSpacing.toFixed(1)} m
-                </Text>
+                <Text style={styles.dimLabel}>Jarak Kolom (m)</Text>
               </View>
-              <Slider
-                minimumValue={3}
-                maximumValue={15}
-                step={0.1}
-                value={colSpacing}
-                onValueChange={setColSpacing}
-                minimumTrackTintColor="#135bec"
-                maximumTrackTintColor="#e2e8f0"
-                thumbTintColor="#135bec"
-                style={styles.sliderSmall}
+              <TextInput
+                style={styles.dimInput}
+                value={colSpacingStr}
+                onChangeText={handleColTextChange}
+                keyboardType="numeric"
+                placeholder="0.0000"
+                placeholderTextColor="#cbd5e1"
               />
             </View>
           </View>
@@ -106,26 +159,57 @@ export default function HomePage() {
           <View>
             <View style={[styles.dimCard, { marginLeft: 0, marginTop: 8 }]}>
               <View style={styles.dimHeader}>
-                <Text style={styles.dimLabel}>Bentang Utama</Text>
-                <Text style={styles.dimValueRight}>
-                  {mainSpan.toFixed(1)} m
-                </Text>
+                <Text style={styles.dimLabel}>Bentang Utama (m)</Text>
               </View>
-              <Slider
-                minimumValue={3}
-                maximumValue={30}
-                step={0.1}
-                value={mainSpan}
-                onValueChange={setMainSpan}
-                minimumTrackTintColor="#135bec"
-                maximumTrackTintColor="#e2e8f0"
-                thumbTintColor="#135bec"
-                style={styles.sliderSmall}
+              <TextInput
+                style={styles.dimInput}
+                value={mainSpanStr}
+                onChangeText={handleSpanTextChange}
+                keyboardType="numeric"
+                placeholder="0.0000"
+                placeholderTextColor="#cbd5e1"
               />
             </View>
           </View>
 
-          <TouchableOpacity style={styles.primaryButton} activeOpacity={0.9}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.9}
+            onPress={() => {
+              if (!projectName.trim()) {
+                Alert.alert("Data Belum Lengkap", "Silakan isi Nama Proyek terlebih dahulu.");
+                return;
+              }
+
+              const spanVal = parseFloat(mainSpanStr);
+              const colVal = parseFloat(colSpacingStr);
+
+              if (!mainSpanStr || isNaN(spanVal) || spanVal <= 0) {
+                Alert.alert("Data Invalid", "Silakan isi Bentang Utama dengan angka yang valid.");
+                return;
+              }
+
+              if (!colSpacingStr || isNaN(colVal) || colVal <= 0) {
+                Alert.alert("Data Invalid", "Silakan isi Jarak Kolom dengan angka yang valid.");
+                return;
+              }
+
+              if (!selectedFunction) {
+                Alert.alert("Data Belum Lengkap", "Silakan pilih Fungsi Bangunan.");
+                return;
+              }
+
+              router.push({
+                pathname: "/project/result",
+                params: {
+                  projectName,
+                  buildingType: selectedFunction,
+                  mainSpan: spanVal.toString(),
+                  columnDistance: colVal.toString(),
+                },
+              });
+            }}
+          >
             <Text style={styles.primaryButtonText}>
               Analisis Sistem Struktur
             </Text>
@@ -140,54 +224,66 @@ export default function HomePage() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cardTitle}>
-                  Gedung Perkantoran Sudirman
-                </Text>
-                <Text style={styles.cardSubtitle}>Perkantoran</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={20} color="#135bec" />
-            </View>
-
-            <View style={styles.grid}>
-              <View style={styles.gridItem}>
-                <View style={styles.iconBox}>
-                  <MaterialIcons name="straighten" size={18} color="#135bec" />
+          {recentProject ? (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push({
+                pathname: "/project/[id]",
+                params: { id: recentProject.id, from: "Home" }
+              })}
+            >
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.cardTitle}>
+                    {recentProject.name}
+                  </Text>
+                  <Text style={styles.cardSubtitle}>{recentProject.building_type}</Text>
                 </View>
-                <View style={styles.gridText}>
-                  <Text style={styles.gridLabel}>Bentang</Text>
-                  <Text style={styles.gridValue}>9.0 m</Text>
-                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#135bec" />
               </View>
 
-              <View style={styles.gridItem}>
-                <View style={styles.iconBox}>
+              <View style={styles.grid}>
+                <View style={styles.gridItem}>
+                  <View style={styles.iconBox}>
+                    <MaterialIcons name="straighten" size={18} color="#135bec" />
+                  </View>
+                  <View style={styles.gridText}>
+                    <Text style={styles.gridLabel}>Bentang</Text>
+                    <Text style={styles.gridValue}>{recentProject.main_span.toFixed(4)} m</Text>
+                  </View>
+                </View>
+
+                <View style={styles.gridItem}>
+                  <View style={styles.iconBox}>
+                    <MaterialIcons
+                      name="architecture"
+                      size={18}
+                      color="#135bec"
+                    />
+                  </View>
+                  <View style={styles.gridText}>
+                    <Text style={styles.gridLabel}>Struktur</Text>
+                    <Text style={styles.gridValue}>{recentProject.materials?.name || "N/A"}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.cardFooter}>
+                <View style={styles.footerLeft}>
                   <MaterialIcons
-                    name="architecture"
-                    size={18}
-                    color="#135bec"
+                    name="calendar-today"
+                    size={14}
+                    color="#94a3b8"
                   />
-                </View>
-                <View style={styles.gridText}>
-                  <Text style={styles.gridLabel}>Struktur</Text>
-                  <Text style={styles.gridValue}>Beton Bertulang</Text>
+                  <Text style={styles.footerDate}>{new Date(recentProject.created_at).toLocaleString()}</Text>
                 </View>
               </View>
-            </View>
-
-            <View style={styles.cardFooter}>
-              <View style={styles.footerLeft}>
-                <MaterialIcons
-                  name="calendar-today"
-                  size={14}
-                  color="#94a3b8"
-                />
-                <Text style={styles.footerDate}>2023-10-12 14:20</Text>
-              </View>
-            </View>
-          </View>
+            </TouchableOpacity>
+          ) : (
+            <Text style={{ color: "#94a3b8", fontStyle: "italic", marginTop: 8 }}>
+              Belum ada proyek yang dikerjakan.
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -269,8 +365,6 @@ const styles = StyleSheet.create({
     color: "#0f172a",
   },
   dimUnit: { color: "#94a3b8", marginLeft: 6, marginBottom: 2 },
-  slider: { width: "100%", height: 24 },
-  sliderSmall: { width: "100%", height: 12, marginVertical: 12 },
   dimHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

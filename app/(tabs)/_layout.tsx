@@ -29,7 +29,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="materials"
         options={{
-          title: "Materials",
+          title: "Material",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="layers.fill" color={color} />
           ),
@@ -38,7 +38,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: "History",
+          title: "Riwayat",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="clock.fill" color={color} />
           ),
