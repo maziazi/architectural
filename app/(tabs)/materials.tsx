@@ -1,5 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
   Platform,
@@ -7,10 +8,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
+import { materialCategories } from "@/constants/materialData";
+
 export default function MaterialsPage() {
+  const router = useRouter();
   const bottomExtra = Platform.OS === "ios" ? 34 : 16;
 
   return (
@@ -26,73 +31,27 @@ export default function MaterialsPage() {
           Pahami karakteristik material dan aplikasi tipikalnya.
         </Text>
 
-        <View style={styles.cardRow}>
-          <Image
-            source={require("@/assets/images/materials/concrete.jpg")}
-            style={styles.thumb}
-          />
-          <View style={styles.cardBody}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Beton</Text>
-              <MaterialIcons name="chevron-right" size={20} color="#135bec" />
+        {materialCategories.map((material) => (
+          <TouchableOpacity
+            key={material.id}
+            style={styles.cardRow}
+            onPress={() =>
+              router.push({
+                pathname: "/material-category/[type]",
+                params: { type: material.name },
+              })
+            }
+          >
+            <Image source={material.image} style={styles.thumb} />
+            <View style={styles.cardBody}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{material.name}</Text>
+                <MaterialIcons name="chevron-right" size={20} color="#135bec" />
+              </View>
+              <Text style={styles.cardText}>{material.description}</Text>
             </View>
-            <Text style={styles.cardText}>
-              Beton bertulang kuat terhadap beban tekan cocok untuk kolom dan
-              pelat pada bangunan bertingkat.
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.cardRow}>
-          <Image
-            source={require("@/assets/images/materials/steel.jpg")}
-            style={styles.thumb}
-          />
-          <View style={styles.cardBody}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Baja</Text>
-              <MaterialIcons name="chevron-right" size={20} color="#135bec" />
-            </View>
-            <Text style={styles.cardText}>
-              Baja memberikan rasio kekuatan-berat tinggi ideal untuk bentang
-              panjang dan struktur prefabrikasi.
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.cardRow}>
-          <Image
-            source={require("@/assets/images/materials/timber.jpeg")}
-            style={styles.thumb}
-          />
-          <View style={styles.cardBody}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Kayu</Text>
-              <MaterialIcons name="chevron-right" size={20} color="#135bec" />
-            </View>
-            <Text style={styles.cardText}>
-              Kayu ringan dan estetis cocok untuk struktur modular ringan dan
-              ruang dengan fokus estetika.
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.cardRow}>
-          <Image
-            source={require("@/assets/images/materials/masonry.jpeg")}
-            style={styles.thumb}
-          />
-          <View style={styles.cardBody}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Pasangan Bata</Text>
-              <MaterialIcons name="chevron-right" size={20} color="#135bec" />
-            </View>
-            <Text style={styles.cardText}>
-              Pasangan bata tekstural dan ekonomis ideal untuk penggunaan
-              struktural, perhatikan ketebalan dan sambungan.
-            </Text>
-          </View>
-        </View>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -103,14 +62,6 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 120 },
   title: { fontSize: 28, fontWeight: "800", marginBottom: 6 },
   subtitle: { color: "#6b7280", marginBottom: 12 },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e6e9ee",
-  },
   cardTitle: { fontSize: 16, fontWeight: "700" },
   cardHeader: {
     flexDirection: "row",
@@ -127,6 +78,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: "#e6e9ee",
+    // Shadow for better visual depth
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   thumb: {
     width: 120,
