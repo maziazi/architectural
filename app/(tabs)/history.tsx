@@ -1,53 +1,85 @@
+import { supabase } from "@/lib/supabase";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Platform,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
-export default function HistoryPage() {
-  const bottomExtra = Platform.OS === "ios" ? 34 : 16;
-  const [query, setQuery] = useState("");
+interface ProjectItem {
+  id: string;
+  name: string;
+  building_type: string;
+  main_span: number;
+  created_at: string;
+  materials: {
+    name: string;
+  } | null;
+}
 
-  const items = [
-    {
-      title: "Apartemen Setiabudi",
-      buildingType: "Residential",
-      span: "8.5 m",
-      material: "Beton Bertulang",
-      created: "2023-10-12T14:20:00",
-    },
-    {
-      title: "Paviliun Canggu",
-      buildingType: "Hospitality",
-      span: "12.0 m",
-      material: "Rangka Baja",
-      created: "2023-10-05T09:15:00",
-    },
-    {
-      title: "Gudang Logistik Bekasi",
-      buildingType: "Industrial",
-      span: "24.0 m",
-      material: "Space Frame",
-      created: "2023-09-28T16:45:00",
-    },
-  ];
+export default function HistoryPage() {
+  const router = useRouter();
+  const bottomExtra = Platform.OS === "ios" ? 34 : 16;
+
+  const [query, setQuery] = useState("");
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProjects();
+    }, [])
+  );
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          materials (
+            name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Error fetching projects:", error);
+      } else {
+        setProjects(data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProjects();
+  };
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((it) =>
-      (it.title + " " + it.buildingType + " " + it.material)
+    if (!q) return projects;
+    return projects.filter((it) =>
+      (it.name + " " + it.building_type + " " + (it.materials?.name || ""))
         .toLowerCase()
         .includes(q),
     );
-  }, [items, query]);
+  }, [projects, query]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -56,6 +88,9 @@ export default function HistoryPage() {
           styles.content,
           { paddingBottom: styles.content.paddingBottom + bottomExtra },
         ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         <Text style={styles.title}>Riwayat</Text>
 
@@ -84,56 +119,73 @@ export default function HistoryPage() {
           ) : null}
         </View>
 
-        {filteredItems.map((it, idx) => (
-          <View key={idx} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cardTitle}>{it.title}</Text>
-                <Text style={styles.cardSubtitle}>{it.buildingType}</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={20} color="#135bec" />
-            </View>
-
-            <View style={styles.grid}>
-              <View style={styles.gridItem}>
-                <View style={styles.iconBox}>
-                  <MaterialIcons name="straighten" size={18} color="#135bec" />
+        {loading && !refreshing ? (
+          <ActivityIndicator size="large" color="#135bec" style={{ marginTop: 20 }} />
+        ) : (
+          filteredItems.map((it) => (
+            <TouchableOpacity
+              key={it.id}
+              style={styles.card}
+              onPress={() => router.push({
+                pathname: "/project/[id]",
+                params: { id: it.id, from: "Riwayat" }
+              })}
+            >
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.cardTitle}>{it.name}</Text>
+                  <Text style={styles.cardSubtitle}>{it.building_type}</Text>
                 </View>
-                <View style={styles.gridText}>
-                  <Text style={styles.gridLabel}>Bentang</Text>
-                  <Text style={styles.gridValue}>{it.span}</Text>
+                <MaterialIcons name="chevron-right" size={20} color="#135bec" />
+              </View>
+
+              <View style={styles.grid}>
+                <View style={styles.gridItem}>
+                  <View style={styles.iconBox}>
+                    <MaterialIcons name="straighten" size={18} color="#135bec" />
+                  </View>
+                  <View style={styles.gridText}>
+                    <Text style={styles.gridLabel}>Bentang</Text>
+                    <Text style={styles.gridValue}>{it.main_span.toFixed(4)} m</Text>
+                  </View>
+                </View>
+
+                <View style={styles.gridItem}>
+                  <View style={styles.iconBox}>
+                    <MaterialIcons
+                      name="architecture"
+                      size={18}
+                      color="#135bec"
+                    />
+                  </View>
+                  <View style={styles.gridText}>
+                    <Text style={styles.gridLabel}>Struktur</Text>
+                    <Text style={styles.gridValue}>{it.materials?.name || "N/A"}</Text>
+                  </View>
                 </View>
               </View>
 
-              <View style={styles.gridItem}>
-                <View style={styles.iconBox}>
+              <View style={styles.cardFooter}>
+                <View style={styles.footerLeft}>
                   <MaterialIcons
-                    name="architecture"
-                    size={18}
-                    color="#135bec"
+                    name="calendar-today"
+                    size={14}
+                    color="#94a3b8"
                   />
-                </View>
-                <View style={styles.gridText}>
-                  <Text style={styles.gridLabel}>Struktur</Text>
-                  <Text style={styles.gridValue}>{it.material}</Text>
+                  <Text style={styles.footerDate}>
+                    {new Date(it.created_at).toLocaleString()}
+                  </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
+          ))
+        )}
 
-            <View style={styles.cardFooter}>
-              <View style={styles.footerLeft}>
-                <MaterialIcons
-                  name="calendar-today"
-                  size={14}
-                  color="#94a3b8"
-                />
-                <Text style={styles.footerDate}>
-                  {new Date(it.created).toLocaleString()}
-                </Text>
-              </View>
-            </View>
-          </View>
-        ))}
+        {!loading && projects.length === 0 && (
+          <Text style={{ textAlign: "center", color: "#94a3b8", marginTop: 20 }}>
+            Belum ada proyek tersimpan.
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -150,6 +202,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: "#e6e9ee",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   searchContainer: {
     flexDirection: "row",
@@ -166,7 +223,6 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, padding: 0, color: "#0f172a" },
   clearButton: { marginLeft: 8, padding: 4 },
   cardTitle: { fontSize: 16, fontWeight: "700" },
-  cardMeta: { fontSize: 12, color: "#6b7280" },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -174,18 +230,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardSubtitle: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
-  badge: {
-    backgroundColor: "#e6f0ff",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeText: {
-    color: "#135bec",
-    fontWeight: "700",
-    fontSize: 11,
-    textTransform: "uppercase",
-  },
   grid: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
   gridItem: {
     flex: 1,
