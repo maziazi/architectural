@@ -28,32 +28,44 @@ interface RecentProject {
 export default function HomePage() {
   const router = useRouter();
   const bottomExtra = Platform.OS === "ios" ? 34 : 16;
+
+  // Existing States
   const [projectName, setProjectName] = useState("");
   const [mainSpan, setMainSpan] = useState<number>(3);
   const [colSpacing, setColSpacing] = useState<number>(3);
   const [selectedFunction, setSelectedFunction] = useState("Hunian");
   const [customDescription, setCustomDescription] = useState("");
+  const [recentProject, setRecentProject] = useState<RecentProject | null>(
+    null,
+  );
 
-  const [recentProject, setRecentProject] = useState<RecentProject | null>(null);
+  const [colSpacingStr, setColSpacingStr] = useState("3.00");
+  const [mainSpanStr, setMainSpanStr] = useState("3.00");
+
+  // New States for Advanced Features
+  const [numFloors, setNumFloors] = useState<number>(1);
+  const [floorHeight, setFloorHeight] = useState<number>(3.5);
+  const [numFloorsStr, setNumFloorsStr] = useState("1");
+  const [floorHeightStr, setFloorHeightStr] = useState("3.50");
 
   const functions = ["Hunian", "Kantor", "Sekolah", "Publik"];
 
   useFocusEffect(
     useCallback(() => {
       fetchRecentProject();
-    }, [])
+    }, []),
   );
 
   const fetchRecentProject = async () => {
     try {
       const { data, error } = await supabase
-        .from('projects')
-        .select('*, materials(name)')
-        .order('created_at', { ascending: false })
+        .from("projects")
+        .select("*, materials(name)")
+        .order("created_at", { ascending: false })
         .limit(1)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "The result contains 0 rows"
+      if (error && error.code !== "PGRST116") {
         console.error("Error fetching recent project:", error);
       } else if (data) {
         setRecentProject(data);
@@ -63,23 +75,28 @@ export default function HomePage() {
     }
   };
 
-  const [colSpacingStr, setColSpacingStr] = useState("3.00");
-  const [mainSpanStr, setMainSpanStr] = useState("3.00");
-
   const handleColTextChange = (text: string) => {
     setColSpacingStr(text);
     const val = parseFloat(text);
-    if (!isNaN(val)) {
-      setColSpacing(val);
-    }
+    if (!isNaN(val)) setColSpacing(val);
   };
 
   const handleSpanTextChange = (text: string) => {
     setMainSpanStr(text);
     const val = parseFloat(text);
-    if (!isNaN(val)) {
-      setMainSpan(val);
-    }
+    if (!isNaN(val)) setMainSpan(val);
+  };
+
+  const handleNumFloorsChange = (text: string) => {
+    setNumFloorsStr(text);
+    const val = parseInt(text);
+    if (!isNaN(val)) setNumFloors(val);
+  };
+
+  const handleFloorHeightChange = (text: string) => {
+    setFloorHeightStr(text);
+    const val = parseFloat(text);
+    if (!isNaN(val)) setFloorHeight(val);
   };
 
   return (
@@ -139,7 +156,12 @@ export default function HomePage() {
               ))}
             </View>
             <View style={styles.functionDescBox}>
-              <MaterialIcons name="edit" size={14} color="#64748b" style={{ marginTop: 4 }} />
+              <MaterialIcons
+                name="edit"
+                size={14}
+                color="#64748b"
+                style={{ marginTop: 4 }}
+              />
               <TextInput
                 style={styles.functionDescInput}
                 value={customDescription}
@@ -147,6 +169,36 @@ export default function HomePage() {
                 placeholder={`Jelaskan detail ${selectedFunction} di sini...`}
                 placeholderTextColor="#cbd5e1"
                 multiline
+              />
+            </View>
+          </View>
+
+          {/* New Advanced Inputs */}
+          <View style={styles.dimRow}>
+            <View style={styles.dimCard}>
+              <View style={styles.dimHeader}>
+                <Text style={styles.dimLabel}>Jumlah Lantai</Text>
+              </View>
+              <TextInput
+                style={styles.dimInput}
+                value={numFloorsStr}
+                onChangeText={handleNumFloorsChange}
+                keyboardType="numeric"
+                placeholder="1"
+                placeholderTextColor="#cbd5e1"
+              />
+            </View>
+            <View style={styles.dimCard}>
+              <View style={styles.dimHeader}>
+                <Text style={styles.dimLabel}>Tinggi /Lantai (m)</Text>
+              </View>
+              <TextInput
+                style={styles.dimInput}
+                value={floorHeightStr}
+                onChangeText={handleFloorHeightChange}
+                keyboardType="numeric"
+                placeholder="3.50"
+                placeholderTextColor="#cbd5e1"
               />
             </View>
           </View>
@@ -188,25 +240,23 @@ export default function HomePage() {
             activeOpacity={0.9}
             onPress={() => {
               if (!projectName.trim()) {
-                Alert.alert("Data Belum Lengkap", "Silakan isi Nama Proyek terlebih dahulu.");
+                Alert.alert(
+                  "Data Belum Lengkap",
+                  "Silakan isi Nama Proyek terlebih dahulu.",
+                );
                 return;
               }
 
               const spanVal = parseFloat(mainSpanStr);
               const colVal = parseFloat(colSpacingStr);
+              const floorVal = parseInt(numFloorsStr) || 1;
+              const heightVal = parseFloat(floorHeightStr) || 3.5;
 
               if (!mainSpanStr || isNaN(spanVal) || spanVal <= 0) {
-                Alert.alert("Data Invalid", "Silakan isi Bentang Utama dengan angka yang valid.");
-                return;
-              }
-
-              if (!colSpacingStr || isNaN(colVal) || colVal <= 0) {
-                Alert.alert("Data Invalid", "Silakan isi Jarak Kolom dengan angka yang valid.");
-                return;
-              }
-
-              if (!selectedFunction) {
-                Alert.alert("Data Belum Lengkap", "Silakan pilih Fungsi Bangunan.");
+                Alert.alert(
+                  "Data Invalid",
+                  "Silakan isi Bentang Utama dengan angka yang valid.",
+                );
                 return;
               }
 
@@ -217,6 +267,8 @@ export default function HomePage() {
                   buildingType: selectedFunction,
                   mainSpan: spanVal.toString(),
                   columnDistance: colVal.toString(),
+                  numFloors: floorVal.toString(),
+                  floorHeight: heightVal.toString(),
                   buildingDescription: customDescription,
                 },
               });
@@ -239,17 +291,19 @@ export default function HomePage() {
           {recentProject ? (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => router.push({
-                pathname: "/project/[id]",
-                params: { id: recentProject.id, from: "Home" }
-              })}
+              onPress={() =>
+                router.push({
+                  pathname: "/project/[id]",
+                  params: { id: recentProject.id, from: "Home" },
+                })
+              }
             >
               <View style={styles.cardHeader}>
                 <View>
-                  <Text style={styles.cardTitle}>
-                    {recentProject.name}
+                  <Text style={styles.cardTitle}>{recentProject.name}</Text>
+                  <Text style={styles.cardSubtitle}>
+                    {recentProject.building_type}
                   </Text>
-                  <Text style={styles.cardSubtitle}>{recentProject.building_type}</Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color="#135bec" />
               </View>
@@ -257,11 +311,17 @@ export default function HomePage() {
               <View style={styles.grid}>
                 <View style={styles.gridItem}>
                   <View style={styles.iconBox}>
-                    <MaterialIcons name="straighten" size={18} color="#135bec" />
+                    <MaterialIcons
+                      name="straighten"
+                      size={18}
+                      color="#135bec"
+                    />
                   </View>
                   <View style={styles.gridText}>
                     <Text style={styles.gridLabel}>Bentang</Text>
-                    <Text style={styles.gridValue}>{recentProject.main_span.toFixed(2)} m</Text>
+                    <Text style={styles.gridValue}>
+                      {recentProject.main_span.toFixed(2)} m
+                    </Text>
                   </View>
                 </View>
 
@@ -275,7 +335,9 @@ export default function HomePage() {
                   </View>
                   <View style={styles.gridText}>
                     <Text style={styles.gridLabel}>Struktur</Text>
-                    <Text style={styles.gridValue}>{recentProject.materials?.name || "N/A"}</Text>
+                    <Text style={styles.gridValue}>
+                      {recentProject.materials?.name || "N/A"}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -287,12 +349,16 @@ export default function HomePage() {
                     size={14}
                     color="#94a3b8"
                   />
-                  <Text style={styles.footerDate}>{new Date(recentProject.created_at).toLocaleString()}</Text>
+                  <Text style={styles.footerDate}>
+                    {new Date(recentProject.created_at).toLocaleString()}
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
           ) : (
-            <Text style={{ color: "#94a3b8", fontStyle: "italic", marginTop: 8 }}>
+            <Text
+              style={{ color: "#94a3b8", fontStyle: "italic", marginTop: 8 }}
+            >
               Belum ada proyek yang dikerjakan.
             </Text>
           )}
@@ -309,7 +375,17 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 0, paddingBottom: 4 },
   title: { fontSize: 28, fontWeight: "800", color: "#0f172a" },
   subtitle: { color: "#64748b", marginTop: 4 },
-  infoText: { fontSize: 13, color: "#1e40af", backgroundColor: "#eff6ff", padding: 10, borderRadius: 8, marginTop: 12, lineHeight: 18, borderLeftWidth: 4, borderLeftColor: "#3b82f6" },
+  infoText: {
+    fontSize: 13,
+    color: "#1e40af",
+    backgroundColor: "#eff6ff",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    lineHeight: 18,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3b82f6",
+  },
   functionDescBox: {
     marginTop: 10,
     backgroundColor: "#fff",

@@ -30,7 +30,7 @@ export default function ProjectResultPage() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
-    const { projectName, buildingType, mainSpan, columnDistance, buildingDescription } = params;
+    const { projectName, buildingType, mainSpan, columnDistance, buildingDescription, numFloors, floorHeight } = params;
 
     const [loading, setLoading] = useState(true);
     const [materials, setMaterials] = useState<Material[]>([]);
@@ -39,6 +39,8 @@ export default function ProjectResultPage() {
     // Structural Logic Constants
     const span = Number(mainSpan);
     const spacing = Number(columnDistance);
+    const floors = Number(numFloors) || 1;
+    const height = Number(floorHeight) || 3.5;
     const functionType = String(buildingType);
     const tributaryArea = span * spacing;
 
@@ -91,6 +93,8 @@ export default function ProjectResultPage() {
                         building_type: buildingType,
                         main_span: Number(mainSpan),
                         column_distance: Number(columnDistance),
+                        num_floors: floors,
+                        floor_height: height,
                         selected_material_id: materialId,
                         description: buildingDescription,
                     }
@@ -114,18 +118,17 @@ export default function ProjectResultPage() {
     const renderItem = ({ item }: { item: Material }) => {
         // 1. Material-Specific Beam Height Calculation
         // Memakai rasio unik tiap item dari DB (Efisiensi Teknis)
-        const itemEfficiencyRatio = (item.depth_min && item.span_min) ? (item.depth_min / item.span_min) : (1 / 20);
+        // item.depth_min dalam cm, item.span_min dalam m
+        const itemEfficiencyRatio = (item.depth_min && item.span_min) ? ((item.depth_min / 100) / item.span_min) : (1 / 20);
 
-        let matBeamHeightMin = span * itemEfficiencyRatio;
+        let matBeamHeightMin = span * (itemEfficiencyRatio * 100); // dalam cm
         let matBeamHeightMax = 0;
 
-        if (item.span_max && item.depth_max && item.span_max < 900) {
-            matBeamHeightMax = span * (item.depth_max / item.span_max);
-        } else if (item.span_min && item.depth_max) {
-            matBeamHeightMax = span * (item.depth_max / item.span_min);
-        } else {
-            matBeamHeightMax = matBeamHeightMin * 1.2;
-        }
+        const maxRatio = (item.depth_max && item.span_max && item.span_max < 900)
+            ? ((item.depth_max / 100) / item.span_max)
+            : (item.depth_max && item.span_min) ? ((item.depth_max / 100) / item.span_min) : itemEfficiencyRatio * 1.2;
+
+        matBeamHeightMax = span * (maxRatio * 100); // dalam cm
 
         // Adjust based on building function (load)
         if (functionType !== "Hunian") {
@@ -134,30 +137,34 @@ export default function ProjectResultPage() {
             matBeamHeightMax *= multiplier;
         }
 
-        // 2. Advanced Material-Specific Column Calculation
-        // Menghitung "Column Factor" dinamis berdasarkan rasio efisiensi item
-        // Semakin ramping baloknya (ratio kecil), material dianggap lebih premium/kuat
+        // 2. Advanced Multi-Floor Column Calculation
         let baseTypeFactor = 15; // Default Beton
-        let standardRatio = 0.05; // Standar L/20
+        let standardRatio = 0.05; // Standar L/20 (0.05)
 
         if (item.type === "Baja") {
             baseTypeFactor = 4;
-            standardRatio = 0.04; // Standar L/25
+            standardRatio = 0.04; // Standar L/25 (0.04)
         } else if (item.type === "Kayu") {
             baseTypeFactor = 22;
-            standardRatio = 0.06; // Standar L/16
+            standardRatio = 0.06; // Standar L/16 (0.06)
         } else if (item.type === "Bata") {
             baseTypeFactor = 35;
-            standardRatio = 0.1;
+            standardRatio = 0.1; // L/10
         }
 
-        // Rumus Advance: Faktor Kolom disesuaikan dengan rasio unik item tersebut
-        // Jika Beton A punya rasio L/24 dan Beton B L/20, maka Beton A akan punya kolom lebih ramping
+        // Koreksi adjustment: membandingkan rasio m/m vs m/m
         const adjustment = itemEfficiencyRatio / standardRatio;
-        const matColumnFactor = baseTypeFactor * adjustment;
 
-        const matColumnArea = tributaryArea * loadFactor * matColumnFactor;
-        const matColumnDim = Math.sqrt(matColumnArea);
+        // Slenderness Factor (Buckling)
+        // Jika tinggi lantai > 3.5m, tambahkan faktor keamanan 5% setiap 0.5m
+        let slendernessFactor = 1.0;
+        if (height > 3.5) {
+            slendernessFactor = 1.0 + ((height - 3.5) / 0.5) * 0.05;
+        }
+
+        // TOTAL COLUMN AREA = Area_Dasar * Jumlah_Lantai * Faktor_Langsing
+        const matColumnArea = tributaryArea * loadFactor * baseTypeFactor * adjustment * floors * slendernessFactor;
+        const matColumnDim = Math.sqrt(matColumnArea); // Sisi kolom dalam cm
 
         return (
             <View style={styles.card}>
@@ -273,12 +280,20 @@ export default function ProjectResultPage() {
 
                 <View style={styles.summaryDetailGrid}>
                     <View style={styles.summaryDetailItem}>
-                        <Text style={styles.summaryDetailLabel}>BENTANG UTAMA</Text>
+                        <Text style={styles.summaryDetailLabel}>BENTANG</Text>
                         <Text style={styles.summaryDetailValue}>{Number(mainSpan).toFixed(2)} m</Text>
                     </View>
                     <View style={styles.summaryDetailItem}>
                         <Text style={styles.summaryDetailLabel}>JARAK KOLOM</Text>
                         <Text style={styles.summaryDetailValue}>{Number(columnDistance).toFixed(2)} m</Text>
+                    </View>
+                    <View style={styles.summaryDetailItem}>
+                        <Text style={styles.summaryDetailLabel}>LANTAI</Text>
+                        <Text style={styles.summaryDetailValue}>{floors} Lt</Text>
+                    </View>
+                    <View style={styles.summaryDetailItem}>
+                        <Text style={styles.summaryDetailLabel}>TINGGI /LT</Text>
+                        <Text style={styles.summaryDetailValue}>{height.toFixed(2)} m</Text>
                     </View>
                 </View>
 
