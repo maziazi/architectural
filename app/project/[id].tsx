@@ -17,13 +17,16 @@ interface ProjectDetail {
     building_type: string;
     main_span: number;
     column_distance: number;
+    description: string;
     created_at: string;
     materials: {
         id: string;
         name: string;
         type: string;
-        span_range: string;
-        depth: string;
+        span_min: number;
+        span_max: number;
+        depth_min: number;
+        depth_max: number;
         description: string;
         characteristics: string[];
         suitable_for: string[];
@@ -98,6 +101,13 @@ export default function ProjectDetailPage() {
                             </View>
                         </View>
 
+                        {project.description && (
+                            <View style={styles.descSection}>
+                                <Text style={styles.descLabel}>Deskripsi Fungsi</Text>
+                                <Text style={styles.descText}>{project.description}</Text>
+                            </View>
+                        )}
+
                         <View style={styles.divider} />
 
                         <View style={styles.grid}>
@@ -110,6 +120,68 @@ export default function ProjectDetailPage() {
                                 <Text style={styles.value}>{project.column_distance.toFixed(2)} m</Text>
                             </View>
                         </View>
+
+                        {/* Deterministic Structural Sizing */}
+                        {(() => {
+                            const span = project.main_span;
+                            const spacing = project.column_distance;
+                            const functionType = project.building_type;
+
+                            let beamHeightMin = 0;
+                            let beamHeightMax = 0;
+                            if (functionType === "Hunian") {
+                                beamHeightMin = span / 24 * 100;
+                                beamHeightMax = span / 22 * 100;
+                            } else if (functionType === "Kantor") {
+                                beamHeightMin = span / 20 * 100;
+                                beamHeightMax = span / 18 * 100;
+                            } else if (functionType === "Sekolah" || functionType === "Publik") {
+                                beamHeightMin = span / 18 * 100;
+                                beamHeightMax = span / 14 * 100;
+                            } else {
+                                beamHeightMin = span / 20 * 100;
+                                beamHeightMax = span / 16 * 100;
+                            }
+
+                            const tributaryArea = span * spacing;
+                            let loadFactor = 1.0;
+                            if (functionType === "Hunian") loadFactor = 1.0;
+                            else if (functionType === "Kantor") loadFactor = 1.3;
+                            else if (functionType === "Sekolah" || functionType === "Publik") loadFactor = 1.6;
+
+                            const columnArea = tributaryArea * loadFactor * 15;
+                            const columnDim = Math.sqrt(columnArea);
+
+                            return (
+                                <View style={styles.dimRecommendation}>
+                                    <Text style={styles.dimTitle}>Rekomendasi Dimensi Sizing</Text>
+                                    <View style={styles.dimGrid}>
+                                        <View style={styles.dimItem}>
+                                            <MaterialIcons name="height" size={16} color="#3b82f6" />
+                                            <View>
+                                                <Text style={styles.dimLabel}>Tinggi Balok</Text>
+                                                <Text style={styles.dimValue}>{beamHeightMin.toFixed(0)}-{beamHeightMax.toFixed(0)} cm</Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.dimItem}>
+                                            <MaterialIcons name="grid-view" size={16} color="#10b981" />
+                                            <View>
+                                                <Text style={styles.dimLabel}>Luas Kolom</Text>
+                                                <Text style={styles.dimValue}>{columnArea.toFixed(0)} cm² ({columnDim.toFixed(0)}x{columnDim.toFixed(0)})</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                    <View style={styles.logicNoteBox}>
+                                        <Text style={styles.logicNoteText}>
+                                            * Berdasarkan fungsi {functionType}, bentang {span.toFixed(2)}m, dan jarak kolom {spacing.toFixed(2)}m.
+                                        </Text>
+                                        <Text style={[styles.logicNoteText, { marginTop: 4, fontStyle: 'italic', color: '#94a3b8' }]}>
+                                            Preliminary sizing only. Structural engineer verification required.
+                                        </Text>
+                                    </View>
+                                </View>
+                            );
+                        })()}
                     </View>
 
                     <Text style={styles.sectionHeader}>Material Struktur Terpilih</Text>
@@ -128,11 +200,19 @@ export default function ProjectDetailPage() {
                             <View style={styles.matGrid}>
                                 <View style={styles.gridItem}>
                                     <Text style={styles.label}>Rentang Bentang</Text>
-                                    <Text style={styles.value}>{material.span_range}</Text>
+                                    <Text style={styles.value}>
+                                        {material.span_min && material.span_max
+                                            ? `${material.span_min}m - ${material.span_max === 999 ? '∞' : material.span_max + 'm'}`
+                                            : 'N/A'}
+                                    </Text>
                                 </View>
                                 <View style={styles.gridItem}>
                                     <Text style={styles.label}>Kedalaman</Text>
-                                    <Text style={styles.value}>{material.depth}</Text>
+                                    <Text style={styles.value}>
+                                        {material.depth_min && material.depth_max
+                                            ? `${material.depth_min} - ${material.depth_max} cm`
+                                            : material.depth_min ? `${material.depth_min} cm` : 'N/A'}
+                                    </Text>
                                 </View>
                             </View>
 
@@ -207,6 +287,9 @@ const styles = StyleSheet.create({
     metaRow: { flexDirection: "row", gap: 16, marginBottom: 16 },
     metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
     metaText: { color: "#6b7280", fontSize: 14 },
+    descSection: { backgroundColor: "#f8fafc", padding: 12, borderRadius: 8, marginBottom: 16 },
+    descLabel: { fontSize: 10, fontWeight: "700", color: "#64748b", textTransform: "uppercase", marginBottom: 4 },
+    descText: { fontSize: 14, color: "#1e2937", lineHeight: 20 },
     divider: { height: 1, backgroundColor: "#f3f4f6", marginBottom: 16 },
 
     sectionHeader: { fontSize: 18, fontWeight: "700", marginBottom: 12, color: "#374151" },
@@ -257,4 +340,20 @@ const styles = StyleSheet.create({
         marginRight: 10
     },
     errorText: { color: "#ef4444", fontStyle: "italic" },
+
+    dimRecommendation: {
+        marginTop: 20,
+        backgroundColor: "#f0f9ff",
+        borderRadius: 10,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: "#bae6fd",
+    },
+    dimTitle: { fontSize: 13, fontWeight: "700", color: "#0369a1", marginBottom: 10 },
+    dimGrid: { flexDirection: "row", gap: 12 },
+    dimItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+    dimLabel: { fontSize: 10, color: "#64748b", textTransform: "uppercase" },
+    dimValue: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
+    logicNoteBox: { marginTop: 12, borderTopWidth: 1, borderTopColor: "#e0f2fe", paddingTop: 8 },
+    logicNoteText: { fontSize: 11, color: "#475569", lineHeight: 16 },
 });
