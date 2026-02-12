@@ -1,4 +1,4 @@
-# Architectural Structural Companion App
+# Archi Select
 
 An Expo mobile application inspired by
 **The Architect’s Studio Companion: Rules of Thumb for Preliminary Design**
@@ -8,7 +8,7 @@ by Edward Allen and Joseph Iano.
 
 ## About this project
 
-This repository is an [Expo](https://expo.dev) project created with [`create-expo-app`]. It merges an Expo starter with an architectural tool that helps architects and students make preliminary structural decisions using rules-of-thumb and visual guidance.
+This repository is an [Expo](https://expo.dev) project created with [`create-expo-app`]. Archi Select is an architectural tool that helps architects and students make preliminary structural decisions using rules-of-thumb and visual guidance.
 
 You can develop and run the app with the standard Expo workflow described below.
 

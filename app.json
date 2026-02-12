@@ -1,37 +1,38 @@
 {
   "expo": {
-    "name": "Archi",
-    "slug": "Archi",
+    "name": "Archi Select",
+    "slug": "archi-select",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "archi",
+    "icon": "./assets/images/Logo-ArchiSelect.png",
+    "scheme": "archi-select",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.archiselect.app"
     },
     "android": {
-      "package": "com.archi.app",
+      "package": "com.archiselect.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/Logo-ArchiSelect.png",
+        "backgroundImage": "./assets/images/Logo-ArchiSelect.png",
+        "monochromeImage": "./assets/images/Logo-ArchiSelect.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/Logo-ArchiSelect.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/Logo-ArchiSelect.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -48,7 +49,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e4e76951-9f86-4f7b-99c2-6651880a7e4e"
+        "projectId": "b257401b-754b-4fc5-a76f-885ba5b05e96"
       }
     }
   }
