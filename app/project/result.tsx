@@ -35,41 +35,17 @@ export default function ProjectResultPage() {
     const [loading, setLoading] = useState(true);
     const [materials, setMaterials] = useState<Material[]>([]);
     const [saving, setSaving] = useState(false);
-    const [expandedLogic, setExpandedLogic] = useState(false);
 
-    // Structural Logic Calculations
+    // Structural Logic Constants
     const span = Number(mainSpan);
     const spacing = Number(columnDistance);
     const functionType = String(buildingType);
-
-    // Horizontal Calculation
-    let beamHeightMin = 0;
-    let beamHeightMax = 0;
-    if (functionType === "Hunian") {
-        beamHeightMin = span / 24 * 100;
-        beamHeightMax = span / 22 * 100;
-    } else if (functionType === "Kantor") {
-        beamHeightMin = span / 20 * 100;
-        beamHeightMax = span / 18 * 100;
-    } else if (functionType === "Sekolah" || functionType === "Publik") {
-        beamHeightMin = span / 18 * 100;
-        beamHeightMax = span / 14 * 100;
-    } else {
-        beamHeightMin = span / 20 * 100;
-        beamHeightMax = span / 16 * 100;
-    }
-
-    // Vertical Calculation
     const tributaryArea = span * spacing;
+
     let loadFactor = 1.0;
     if (functionType === "Hunian") loadFactor = 1.0;
     else if (functionType === "Kantor") loadFactor = 1.3;
     else if (functionType === "Sekolah" || functionType === "Publik") loadFactor = 1.6;
-
-    // Simplified Column Area Rule: Approx 0.1% of tributary load in kg? 
-    // Let's use a scale: Area (cm2) = TributaryArea (m2) * factor * 12 (heuristic for preliminary)
-    const columnArea = tributaryArea * loadFactor * 15;
-    const columnDim = Math.sqrt(columnArea);
 
     useEffect(() => {
         fetchRecommendations();
@@ -107,7 +83,7 @@ export default function ProjectResultPage() {
     const handleSelectMaterial = async (materialId: string) => {
         setSaving(true);
         try {
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('projects')
                 .insert([
                     {
@@ -118,8 +94,7 @@ export default function ProjectResultPage() {
                         selected_material_id: materialId,
                         description: buildingDescription,
                     }
-                ])
-                .select();
+                ]);
 
             if (error) {
                 console.error("Error saving project:", error);
@@ -136,109 +111,140 @@ export default function ProjectResultPage() {
         }
     };
 
-    const renderItem = ({ item }: { item: Material }) => (
-        <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>{item.name}</Text>
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.type}</Text>
-                    </View>
-                </View>
-            </View>
+    const renderItem = ({ item }: { item: Material }) => {
+        // 1. Material-Specific Beam Height Calculation
+        // Memakai rasio unik tiap item dari DB (Efisiensi Teknis)
+        const itemEfficiencyRatio = (item.depth_min && item.span_min) ? (item.depth_min / item.span_min) : (1 / 20);
 
-            <Text style={styles.description}>{item.description}</Text>
+        let matBeamHeightMin = span * itemEfficiencyRatio;
+        let matBeamHeightMax = 0;
 
-            {/* Preliminary Dimensions */}
-            <View style={styles.dimRecommendation}>
-                <Text style={styles.dimTitle}>Rekomendasi Dimensi Sizing</Text>
-                <View style={styles.dimGrid}>
-                    <View style={styles.dimItem}>
-                        <MaterialIcons name="height" size={16} color="#3b82f6" />
-                        <View>
-                            <Text style={styles.dimLabel}>Tinggi Balok</Text>
-                            <Text style={styles.dimValue}>{beamHeightMin.toFixed(0)}-{beamHeightMax.toFixed(0)} cm</Text>
+        if (item.span_max && item.depth_max && item.span_max < 900) {
+            matBeamHeightMax = span * (item.depth_max / item.span_max);
+        } else if (item.span_min && item.depth_max) {
+            matBeamHeightMax = span * (item.depth_max / item.span_min);
+        } else {
+            matBeamHeightMax = matBeamHeightMin * 1.2;
+        }
+
+        // Adjust based on building function (load)
+        if (functionType !== "Hunian") {
+            const multiplier = functionType === "Kantor" ? 1.15 : 1.25;
+            matBeamHeightMin *= multiplier;
+            matBeamHeightMax *= multiplier;
+        }
+
+        // 2. Advanced Material-Specific Column Calculation
+        // Menghitung "Column Factor" dinamis berdasarkan rasio efisiensi item
+        // Semakin ramping baloknya (ratio kecil), material dianggap lebih premium/kuat
+        let baseTypeFactor = 15; // Default Beton
+        let standardRatio = 0.05; // Standar L/20
+
+        if (item.type === "Baja") {
+            baseTypeFactor = 4;
+            standardRatio = 0.04; // Standar L/25
+        } else if (item.type === "Kayu") {
+            baseTypeFactor = 22;
+            standardRatio = 0.06; // Standar L/16
+        } else if (item.type === "Bata") {
+            baseTypeFactor = 35;
+            standardRatio = 0.1;
+        }
+
+        // Rumus Advance: Faktor Kolom disesuaikan dengan rasio unik item tersebut
+        // Jika Beton A punya rasio L/24 dan Beton B L/20, maka Beton A akan punya kolom lebih ramping
+        const adjustment = itemEfficiencyRatio / standardRatio;
+        const matColumnFactor = baseTypeFactor * adjustment;
+
+        const matColumnArea = tributaryArea * loadFactor * matColumnFactor;
+        const matColumnDim = Math.sqrt(matColumnArea);
+
+        return (
+            <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.cardTitle}>{item.name}</Text>
+                        <View style={styles.badge}>
+                            <Text style={styles.badgeText}>{item.type}</Text>
                         </View>
                     </View>
-                    <View style={styles.dimItem}>
-                        <MaterialIcons name="grid-view" size={16} color="#10b981" />
-                        <View>
-                            <Text style={styles.dimLabel}>Luas Kolom</Text>
-                            <Text style={styles.dimValue}>{columnArea.toFixed(0)} cm² ({columnDim.toFixed(0)}x{columnDim.toFixed(0)})</Text>
+                </View>
+
+                <Text style={styles.description}>{item.description}</Text>
+
+                {/* Preliminary Dimensions */}
+                <View style={styles.dimRecommendation}>
+                    <Text style={styles.dimTitle}>Rekomendasi Dimensi Sizing ({item.name})</Text>
+                    <View style={styles.dimGrid}>
+                        <View style={styles.dimItem}>
+                            <MaterialIcons name="height" size={16} color="#3b82f6" />
+                            <View>
+                                <Text style={styles.dimLabel}>Tinggi Balok</Text>
+                                <Text style={styles.dimValue}>{matBeamHeightMin.toFixed(0)}-{matBeamHeightMax.toFixed(0)} cm</Text>
+                            </View>
+                        </View>
+                        <View style={styles.dimItem}>
+                            <MaterialIcons name="grid-view" size={16} color="#10b981" />
+                            <View>
+                                <Text style={styles.dimLabel}>Luas Kolom</Text>
+                                <Text style={styles.dimValue} numberOfLines={2}>
+                                    {(matColumnArea / 10000).toFixed(2)} m²{"\n"}({(matColumnDim / 100).toFixed(2)}x{(matColumnDim / 100).toFixed(2)} m)
+                                </Text>
+                            </View>
                         </View>
                     </View>
                 </View>
-            </View>
 
-            <TouchableOpacity
-                style={styles.logicToggle}
-                onPress={() => setExpandedLogic(!expandedLogic)}
-            >
-                <Text style={styles.logicToggleText}>Lihat Justifikasi Struktur</Text>
-                <MaterialIcons name={expandedLogic ? "expand-less" : "expand-more"} size={20} color="#64748b" />
-            </TouchableOpacity>
 
-            {expandedLogic && (
-                <View style={styles.logicContent}>
-                    <Text style={styles.logicText}>
-                        • Bangunan <Text style={{ fontWeight: '700' }}>{functionType}</Text> membutuhkan {functionType === "Hunian" ? "kedalaman struktur standar" : "kedalaman struktur lebih besar"} karena beban hidup yang {(functionType === "Hunian") ? "lebih ringan" : "lebih tinggi"}.
-                    </Text>
-                    <Text style={styles.logicText}>
-                        • Bentang {span.toFixed(2)}m dan jarak kolom {spacing.toFixed(2)}m menentukan beban total yang harus dipikul oleh elemen struktur.
-                    </Text>
-                    <Text style={styles.logicNote}>
-                        *Ini hanya estimasi awal (preliminary sizing). Verifikasi oleh Structural Engineer tetap diperlukan.
-                    </Text>
+
+                <View style={styles.specRow}>
+                    <View style={styles.specItem}>
+                        <Text style={styles.specLabel}>Rentang Material</Text>
+                        <Text style={styles.specValue}>
+                            {item.span_min && item.span_max
+                                ? `${item.span_min}m - ${item.span_max === 999 ? '∞' : item.span_max + 'm'}`
+                                : 'N/A'}
+                        </Text>
+                    </View>
+                    <View style={styles.specItem}>
+                        <Text style={styles.specLabel}>Kedalaman Standar</Text>
+                        <Text style={styles.specValue}>
+                            {item.depth_min && item.depth_max
+                                ? `${item.depth_min} - ${item.depth_max} cm`
+                                : item.depth_min ? `${item.depth_min} cm` : 'N/A'}
+                        </Text>
+                    </View>
                 </View>
-            )}
 
-            <View style={styles.specRow}>
-                <View style={styles.specItem}>
-                    <Text style={styles.specLabel}>Rentang Material</Text>
-                    <Text style={styles.specValue}>
-                        {item.span_min && item.span_max
-                            ? `${item.span_min}m - ${item.span_max === 999 ? '∞' : item.span_max + 'm'}`
-                            : 'N/A'}
-                    </Text>
-                </View>
-                <View style={styles.specItem}>
-                    <Text style={styles.specLabel}>Kedalaman Standar</Text>
-                    <Text style={styles.specValue}>
-                        {item.depth_min && item.depth_max
-                            ? `${item.depth_min} - ${item.depth_max} cm`
-                            : item.depth_min ? `${item.depth_min} cm` : 'N/A'}
-                    </Text>
+                <View style={styles.actions}>
+                    <TouchableOpacity
+                        style={styles.detailButton}
+                        onPress={() => router.push({
+                            pathname: "/material-detail/[id]",
+                            params: { id: item.id }
+                        })}
+                    >
+                        <Text style={styles.detailButtonText}>Detail Info</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.selectButton}
+                        onPress={() => handleSelectMaterial(item.id)}
+                        disabled={saving}
+                    >
+                        {saving ? (
+                            <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                            <>
+                                <Text style={styles.selectButtonText}>Pilih & Simpan</Text>
+                                <MaterialIcons name="check" size={18} color="#fff" />
+                            </>
+                        )}
+                    </TouchableOpacity>
                 </View>
             </View>
-
-            <View style={styles.actions}>
-                <TouchableOpacity
-                    style={styles.detailButton}
-                    onPress={() => router.push({
-                        pathname: "/material-detail/[id]",
-                        params: { id: item.id }
-                    })}
-                >
-                    <Text style={styles.detailButtonText}>Detail Info</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.selectButton}
-                    onPress={() => handleSelectMaterial(item.id)}
-                    disabled={saving}
-                >
-                    {saving ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                        <>
-                            <Text style={styles.selectButtonText}>Pilih & Simpan</Text>
-                            <MaterialIcons name="check" size={18} color="#fff" />
-                        </>
-                    )}
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -259,14 +265,24 @@ export default function ProjectResultPage() {
             )}
 
             <View style={styles.summary}>
-                <Text style={styles.summaryText}>
-                    Untuk {buildingType} dengan bentang {Number(mainSpan).toFixed(2)}m
-                </Text>
-                {buildingDescription && (
-                    <Text style={styles.summaryDesc}>
-                        Detail: {buildingDescription}
+                <View style={styles.summaryHeader}>
+                    <Text style={styles.summaryTitle}>
+                        Untuk {buildingType} — {projectName}
                     </Text>
-                )}
+                </View>
+
+                <View style={styles.summaryDetailGrid}>
+                    <View style={styles.summaryDetailItem}>
+                        <Text style={styles.summaryDetailLabel}>BENTANG UTAMA</Text>
+                        <Text style={styles.summaryDetailValue}>{Number(mainSpan).toFixed(2)} m</Text>
+                    </View>
+                    <View style={styles.summaryDetailItem}>
+                        <Text style={styles.summaryDetailLabel}>JARAK KOLOM</Text>
+                        <Text style={styles.summaryDetailValue}>{Number(columnDistance).toFixed(2)} m</Text>
+                    </View>
+                </View>
+
+
             </View>
 
             {loading ? (
@@ -303,13 +319,62 @@ const styles = StyleSheet.create({
     title: { fontSize: 20, fontWeight: "700", color: "#111827" },
 
     summary: {
-        padding: 12,
-        backgroundColor: "#eff6ff",
+        padding: 16,
+        backgroundColor: "#fff",
         borderBottomWidth: 1,
-        borderBottomColor: "#dbeafe",
+        borderBottomColor: "#e2e8f0",
     },
-    summaryText: { textAlign: "center", color: "#1e40af", fontWeight: "600" },
-    summaryDesc: { textAlign: "center", color: "#64748b", fontSize: 13, marginTop: 4, fontStyle: "italic" },
+    summaryHeader: {
+        marginBottom: 12,
+    },
+    summaryTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#1e40af",
+        textAlign: "center"
+    },
+    summaryDetailGrid: {
+        flexDirection: "row",
+        backgroundColor: "#f8fafc",
+        borderRadius: 8,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "#e2e8f0"
+    },
+    summaryDetailItem: {
+        flex: 1,
+        alignItems: "center"
+    },
+    summaryDetailLabel: {
+        fontSize: 10,
+        color: "#64748b",
+        fontWeight: "700",
+        marginBottom: 4
+    },
+    summaryDetailValue: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#0f172a"
+    },
+    summaryDescBox: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#f1f5f9"
+    },
+    summaryDescLabel: {
+        fontSize: 9,
+        fontWeight: "800",
+        color: "#94a3b8",
+        letterSpacing: 0.5,
+        marginBottom: 4
+    },
+    summaryDescText: {
+        fontSize: 13,
+        color: "#475569",
+        lineHeight: 18,
+        fontStyle: "italic"
+    },
 
     listContent: { padding: 16, paddingBottom: 40 },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -382,25 +447,8 @@ const styles = StyleSheet.create({
     dimTitle: { fontSize: 13, fontWeight: "700", color: "#0369a1", marginBottom: 8 },
     dimGrid: { flexDirection: "row", gap: 16 },
     dimItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
-    dimLabel: { fontSize: 10, color: "#64748b", textTransform: "uppercase" },
-    dimValue: { fontSize: 14, fontWeight: "700", color: "#0f172a" },
+    dimLabel: { fontSize: 10, color: "#64748b" },
+    dimValue: { fontSize: 13, fontWeight: "700", color: "#0f172a", flexShrink: 1 },
 
-    logicToggle: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingVertical: 8,
-        borderTopWidth: 1,
-        borderTopColor: "#f1f5f9",
-        marginBottom: 4,
-    },
-    logicToggleText: { fontSize: 13, color: "#64748b", fontWeight: "600" },
-    logicContent: {
-        backgroundColor: "#f8fafc",
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 12,
-    },
-    logicText: { fontSize: 12, color: "#475569", lineHeight: 18, marginBottom: 4 },
-    logicNote: { fontSize: 11, color: "#94a3b8", fontStyle: "italic", marginTop: 4 },
+
 });

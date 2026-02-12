@@ -126,59 +126,72 @@ export default function ProjectDetailPage() {
                             const span = project.main_span;
                             const spacing = project.column_distance;
                             const functionType = project.building_type;
+                            const mat = project.materials;
 
-                            let beamHeightMin = 0;
-                            let beamHeightMax = 0;
-                            if (functionType === "Hunian") {
-                                beamHeightMin = span / 24 * 100;
-                                beamHeightMax = span / 22 * 100;
-                            } else if (functionType === "Kantor") {
-                                beamHeightMin = span / 20 * 100;
-                                beamHeightMax = span / 18 * 100;
-                            } else if (functionType === "Sekolah" || functionType === "Publik") {
-                                beamHeightMin = span / 18 * 100;
-                                beamHeightMax = span / 14 * 100;
+                            if (!mat) return null;
+
+                            // Material-Specific Beam Height Calculation (Linear scaling from DB reference)
+                            let matBeamHeightMin = 0;
+                            let matBeamHeightMax = 0;
+
+                            if (mat.span_min && mat.depth_min) {
+                                matBeamHeightMin = span * (mat.depth_min / mat.span_min);
                             } else {
-                                beamHeightMin = span / 20 * 100;
-                                beamHeightMax = span / 16 * 100;
+                                matBeamHeightMin = span / 20 * 100;
                             }
 
+                            if (mat.span_max && mat.depth_max && mat.span_max < 900) {
+                                matBeamHeightMax = span * (mat.depth_max / mat.span_max);
+                            } else if (mat.span_min && mat.depth_max) {
+                                matBeamHeightMax = span * (mat.depth_max / mat.span_min);
+                            } else {
+                                matBeamHeightMax = matBeamHeightMin * 1.2;
+                            }
+
+                            // Adjust based on building function (load)
+                            if (functionType !== "Hunian") {
+                                const multiplier = functionType === "Kantor" ? 1.15 : 1.25;
+                                matBeamHeightMin *= multiplier;
+                                matBeamHeightMax *= multiplier;
+                            }
+
+                            // Material-Specific Column Calculation
                             const tributaryArea = span * spacing;
                             let loadFactor = 1.0;
                             if (functionType === "Hunian") loadFactor = 1.0;
                             else if (functionType === "Kantor") loadFactor = 1.3;
                             else if (functionType === "Sekolah" || functionType === "Publik") loadFactor = 1.6;
 
-                            const columnArea = tributaryArea * loadFactor * 15;
-                            const columnDim = Math.sqrt(columnArea);
+                            let matColumnFactor = 15;
+                            if (mat.type === "Baja") matColumnFactor = 4;
+                            else if (mat.type === "Kayu") matColumnFactor = 22;
+                            else if (mat.type === "Bata") matColumnFactor = 35;
+
+                            const matColumnArea = tributaryArea * loadFactor * matColumnFactor;
+                            const matColumnDim = Math.sqrt(matColumnArea);
 
                             return (
                                 <View style={styles.dimRecommendation}>
-                                    <Text style={styles.dimTitle}>Rekomendasi Dimensi Sizing</Text>
+                                    <Text style={styles.dimTitle}>Rekomendasi Dimensi Sizing ({mat.name})</Text>
                                     <View style={styles.dimGrid}>
                                         <View style={styles.dimItem}>
                                             <MaterialIcons name="height" size={16} color="#3b82f6" />
                                             <View>
                                                 <Text style={styles.dimLabel}>Tinggi Balok</Text>
-                                                <Text style={styles.dimValue}>{beamHeightMin.toFixed(0)}-{beamHeightMax.toFixed(0)} cm</Text>
+                                                <Text style={styles.dimValue}>{matBeamHeightMin.toFixed(0)}-{matBeamHeightMax.toFixed(0)} cm</Text>
                                             </View>
                                         </View>
                                         <View style={styles.dimItem}>
                                             <MaterialIcons name="grid-view" size={16} color="#10b981" />
                                             <View>
                                                 <Text style={styles.dimLabel}>Luas Kolom</Text>
-                                                <Text style={styles.dimValue}>{columnArea.toFixed(0)} cm² ({columnDim.toFixed(0)}x{columnDim.toFixed(0)})</Text>
+                                                <Text style={styles.dimValue} numberOfLines={2}>
+                                                    {(matColumnArea / 10000).toFixed(2)} m²{"\n"}({(matColumnDim / 100).toFixed(2)}x{(matColumnDim / 100).toFixed(2)} m)
+                                                </Text>
                                             </View>
                                         </View>
                                     </View>
-                                    <View style={styles.logicNoteBox}>
-                                        <Text style={styles.logicNoteText}>
-                                            * Berdasarkan fungsi {functionType}, bentang {span.toFixed(2)}m, dan jarak kolom {spacing.toFixed(2)}m.
-                                        </Text>
-                                        <Text style={[styles.logicNoteText, { marginTop: 4, fontStyle: 'italic', color: '#94a3b8' }]}>
-                                            Preliminary sizing only. Structural engineer verification required.
-                                        </Text>
-                                    </View>
+
                                 </View>
                             );
                         })()}
@@ -299,6 +312,7 @@ const styles = StyleSheet.create({
         padding: 20,
         borderWidth: 1,
         borderColor: "#e6e9ee",
+        marginBottom: 20,
     },
 
     headerSection: { marginBottom: 20 },
@@ -354,6 +368,5 @@ const styles = StyleSheet.create({
     dimItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
     dimLabel: { fontSize: 10, color: "#64748b", textTransform: "uppercase" },
     dimValue: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
-    logicNoteBox: { marginTop: 12, borderTopWidth: 1, borderTopColor: "#e0f2fe", paddingTop: 8 },
-    logicNoteText: { fontSize: 11, color: "#475569", lineHeight: 16 },
+
 });
