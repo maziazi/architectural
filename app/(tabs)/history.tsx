@@ -146,7 +146,7 @@ export default function HistoryPage() {
                   </View>
                   <View style={styles.gridText}>
                     <Text style={styles.gridLabel}>Bentang</Text>
-                    <Text style={styles.gridValue}>{it.main_span.toFixed(4)} m</Text>
+                    <Text style={styles.gridValue}>{it.main_span.toFixed(2)} m</Text>
                   </View>
                 </View>
 

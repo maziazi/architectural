@@ -63,8 +63,8 @@ export default function HomePage() {
     }
   };
 
-  const [colSpacingStr, setColSpacingStr] = useState("3.0000");
-  const [mainSpanStr, setMainSpanStr] = useState("3.0000");
+  const [colSpacingStr, setColSpacingStr] = useState("3.00");
+  const [mainSpanStr, setMainSpanStr] = useState("3.00");
 
   const handleColTextChange = (text: string) => {
     setColSpacingStr(text);
@@ -150,7 +150,7 @@ export default function HomePage() {
                 value={colSpacingStr}
                 onChangeText={handleColTextChange}
                 keyboardType="numeric"
-                placeholder="0.0000"
+                placeholder="0.00"
                 placeholderTextColor="#cbd5e1"
               />
             </View>
@@ -166,7 +166,7 @@ export default function HomePage() {
                 value={mainSpanStr}
                 onChangeText={handleSpanTextChange}
                 keyboardType="numeric"
-                placeholder="0.0000"
+                placeholder="0.00"
                 placeholderTextColor="#cbd5e1"
               />
             </View>
@@ -249,7 +249,7 @@ export default function HomePage() {
                   </View>
                   <View style={styles.gridText}>
                     <Text style={styles.gridLabel}>Bentang</Text>
-                    <Text style={styles.gridValue}>{recentProject.main_span.toFixed(4)} m</Text>
+                    <Text style={styles.gridValue}>{recentProject.main_span.toFixed(2)} m</Text>
                   </View>
                 </View>
 

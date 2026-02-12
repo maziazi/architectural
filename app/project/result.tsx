@@ -196,7 +196,7 @@ export default function ProjectResultPage() {
 
             <View style={styles.summary}>
                 <Text style={styles.summaryText}>
-                    Untuk {buildingType} dengan bentang {Number(mainSpan).toFixed(4)}m
+                    Untuk {buildingType} dengan bentang {Number(mainSpan).toFixed(2)}m
                 </Text>
             </View>
 

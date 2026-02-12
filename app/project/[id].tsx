@@ -103,11 +103,11 @@ export default function ProjectDetailPage() {
                         <View style={styles.grid}>
                             <View style={styles.gridItem}>
                                 <Text style={styles.label}>Bentang Utama</Text>
-                                <Text style={styles.value}>{project.main_span.toFixed(4)} m</Text>
+                                <Text style={styles.value}>{project.main_span.toFixed(2)} m</Text>
                             </View>
                             <View style={styles.gridItem}>
                                 <Text style={styles.label}>Jarak Kolom</Text>
-                                <Text style={styles.value}>{project.column_distance.toFixed(4)} m</Text>
+                                <Text style={styles.value}>{project.column_distance.toFixed(2)} m</Text>
                             </View>
                         </View>
                     </View>
