@@ -16,8 +16,10 @@ interface MaterialItem {
     id: string;
     name: string;
     type: string;
-    span_range: string;
-    depth: string;
+    span_min: number;
+    span_max: number;
+    depth_min: number;
+    depth_max: number;
 }
 
 export default function MaterialCategoryPage() {
@@ -73,11 +75,19 @@ export default function MaterialCategoryPage() {
             <View style={styles.row}>
                 <View style={styles.col}>
                     <Text style={styles.label}>Rentang Bentang</Text>
-                    <Text style={styles.value}>{item.span_range}</Text>
+                    <Text style={styles.value}>
+                        {item.span_min && item.span_max
+                            ? `${item.span_min}m - ${item.span_max === 999 ? '∞' : item.span_max + 'm'}`
+                            : 'N/A'}
+                    </Text>
                 </View>
                 <View style={styles.col}>
                     <Text style={styles.label}>Kedalaman</Text>
-                    <Text style={styles.value}>{item.depth}</Text>
+                    <Text style={styles.value}>
+                        {item.depth_min && item.depth_max
+                            ? `${item.depth_min} - ${item.depth_max} cm`
+                            : item.depth_min ? `${item.depth_min} cm` : 'N/A'}
+                    </Text>
                 </View>
             </View>
         </TouchableOpacity>

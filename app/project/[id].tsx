@@ -17,13 +17,16 @@ interface ProjectDetail {
     building_type: string;
     main_span: number;
     column_distance: number;
+    description: string;
     created_at: string;
     materials: {
         id: string;
         name: string;
         type: string;
-        span_range: string;
-        depth: string;
+        span_min: number;
+        span_max: number;
+        depth_min: number;
+        depth_max: number;
         description: string;
         characteristics: string[];
         suitable_for: string[];
@@ -98,18 +101,100 @@ export default function ProjectDetailPage() {
                             </View>
                         </View>
 
+                        {project.description && (
+                            <View style={styles.descSection}>
+                                <Text style={styles.descLabel}>Deskripsi Fungsi</Text>
+                                <Text style={styles.descText}>{project.description}</Text>
+                            </View>
+                        )}
+
                         <View style={styles.divider} />
 
                         <View style={styles.grid}>
                             <View style={styles.gridItem}>
                                 <Text style={styles.label}>Bentang Utama</Text>
-                                <Text style={styles.value}>{project.main_span.toFixed(4)} m</Text>
+                                <Text style={styles.value}>{project.main_span.toFixed(2)} m</Text>
                             </View>
                             <View style={styles.gridItem}>
                                 <Text style={styles.label}>Jarak Kolom</Text>
-                                <Text style={styles.value}>{project.column_distance.toFixed(4)} m</Text>
+                                <Text style={styles.value}>{project.column_distance.toFixed(2)} m</Text>
                             </View>
                         </View>
+
+                        {/* Deterministic Structural Sizing */}
+                        {(() => {
+                            const span = project.main_span;
+                            const spacing = project.column_distance;
+                            const functionType = project.building_type;
+                            const mat = project.materials;
+
+                            if (!mat) return null;
+
+                            // Material-Specific Beam Height Calculation (Linear scaling from DB reference)
+                            let matBeamHeightMin = 0;
+                            let matBeamHeightMax = 0;
+
+                            if (mat.span_min && mat.depth_min) {
+                                matBeamHeightMin = span * (mat.depth_min / mat.span_min);
+                            } else {
+                                matBeamHeightMin = span / 20 * 100;
+                            }
+
+                            if (mat.span_max && mat.depth_max && mat.span_max < 900) {
+                                matBeamHeightMax = span * (mat.depth_max / mat.span_max);
+                            } else if (mat.span_min && mat.depth_max) {
+                                matBeamHeightMax = span * (mat.depth_max / mat.span_min);
+                            } else {
+                                matBeamHeightMax = matBeamHeightMin * 1.2;
+                            }
+
+                            // Adjust based on building function (load)
+                            if (functionType !== "Hunian") {
+                                const multiplier = functionType === "Kantor" ? 1.15 : 1.25;
+                                matBeamHeightMin *= multiplier;
+                                matBeamHeightMax *= multiplier;
+                            }
+
+                            // Material-Specific Column Calculation
+                            const tributaryArea = span * spacing;
+                            let loadFactor = 1.0;
+                            if (functionType === "Hunian") loadFactor = 1.0;
+                            else if (functionType === "Kantor") loadFactor = 1.3;
+                            else if (functionType === "Sekolah" || functionType === "Publik") loadFactor = 1.6;
+
+                            let matColumnFactor = 15;
+                            if (mat.type === "Baja") matColumnFactor = 4;
+                            else if (mat.type === "Kayu") matColumnFactor = 22;
+                            else if (mat.type === "Bata") matColumnFactor = 35;
+
+                            const matColumnArea = tributaryArea * loadFactor * matColumnFactor;
+                            const matColumnDim = Math.sqrt(matColumnArea);
+
+                            return (
+                                <View style={styles.dimRecommendation}>
+                                    <Text style={styles.dimTitle}>Rekomendasi Dimensi Sizing ({mat.name})</Text>
+                                    <View style={styles.dimGrid}>
+                                        <View style={styles.dimItem}>
+                                            <MaterialIcons name="height" size={16} color="#3b82f6" />
+                                            <View>
+                                                <Text style={styles.dimLabel}>Tinggi Balok</Text>
+                                                <Text style={styles.dimValue}>{matBeamHeightMin.toFixed(0)}-{matBeamHeightMax.toFixed(0)} cm</Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.dimItem}>
+                                            <MaterialIcons name="grid-view" size={16} color="#10b981" />
+                                            <View>
+                                                <Text style={styles.dimLabel}>Luas Kolom</Text>
+                                                <Text style={styles.dimValue} numberOfLines={2}>
+                                                    {(matColumnArea / 10000).toFixed(2)} m²{"\n"}({(matColumnDim / 100).toFixed(2)}x{(matColumnDim / 100).toFixed(2)} m)
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                </View>
+                            );
+                        })()}
                     </View>
 
                     <Text style={styles.sectionHeader}>Material Struktur Terpilih</Text>
@@ -128,11 +213,19 @@ export default function ProjectDetailPage() {
                             <View style={styles.matGrid}>
                                 <View style={styles.gridItem}>
                                     <Text style={styles.label}>Rentang Bentang</Text>
-                                    <Text style={styles.value}>{material.span_range}</Text>
+                                    <Text style={styles.value}>
+                                        {material.span_min && material.span_max
+                                            ? `${material.span_min}m - ${material.span_max === 999 ? '∞' : material.span_max + 'm'}`
+                                            : 'N/A'}
+                                    </Text>
                                 </View>
                                 <View style={styles.gridItem}>
                                     <Text style={styles.label}>Kedalaman</Text>
-                                    <Text style={styles.value}>{material.depth}</Text>
+                                    <Text style={styles.value}>
+                                        {material.depth_min && material.depth_max
+                                            ? `${material.depth_min} - ${material.depth_max} cm`
+                                            : material.depth_min ? `${material.depth_min} cm` : 'N/A'}
+                                    </Text>
                                 </View>
                             </View>
 
@@ -207,6 +300,9 @@ const styles = StyleSheet.create({
     metaRow: { flexDirection: "row", gap: 16, marginBottom: 16 },
     metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
     metaText: { color: "#6b7280", fontSize: 14 },
+    descSection: { backgroundColor: "#f8fafc", padding: 12, borderRadius: 8, marginBottom: 16 },
+    descLabel: { fontSize: 10, fontWeight: "700", color: "#64748b", textTransform: "uppercase", marginBottom: 4 },
+    descText: { fontSize: 14, color: "#1e2937", lineHeight: 20 },
     divider: { height: 1, backgroundColor: "#f3f4f6", marginBottom: 16 },
 
     sectionHeader: { fontSize: 18, fontWeight: "700", marginBottom: 12, color: "#374151" },
@@ -216,6 +312,7 @@ const styles = StyleSheet.create({
         padding: 20,
         borderWidth: 1,
         borderColor: "#e6e9ee",
+        marginBottom: 20,
     },
 
     headerSection: { marginBottom: 20 },
@@ -257,4 +354,19 @@ const styles = StyleSheet.create({
         marginRight: 10
     },
     errorText: { color: "#ef4444", fontStyle: "italic" },
+
+    dimRecommendation: {
+        marginTop: 20,
+        backgroundColor: "#f0f9ff",
+        borderRadius: 10,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: "#bae6fd",
+    },
+    dimTitle: { fontSize: 13, fontWeight: "700", color: "#0369a1", marginBottom: 10 },
+    dimGrid: { flexDirection: "row", gap: 12 },
+    dimItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+    dimLabel: { fontSize: 10, color: "#64748b", textTransform: "uppercase" },
+    dimValue: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
+
 });

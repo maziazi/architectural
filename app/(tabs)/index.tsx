@@ -1,4 +1,3 @@
-
 import { supabase } from "@/lib/supabase";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -33,6 +32,7 @@ export default function HomePage() {
   const [mainSpan, setMainSpan] = useState<number>(3);
   const [colSpacing, setColSpacing] = useState<number>(3);
   const [selectedFunction, setSelectedFunction] = useState("Hunian");
+  const [customDescription, setCustomDescription] = useState("");
 
   const [recentProject, setRecentProject] = useState<RecentProject | null>(null);
 
@@ -63,8 +63,8 @@ export default function HomePage() {
     }
   };
 
-  const [colSpacingStr, setColSpacingStr] = useState("3.0000");
-  const [mainSpanStr, setMainSpanStr] = useState("3.0000");
+  const [colSpacingStr, setColSpacingStr] = useState("3.00");
+  const [mainSpanStr, setMainSpanStr] = useState("3.00");
 
   const handleColTextChange = (text: string) => {
     setColSpacingStr(text);
@@ -93,7 +93,7 @@ export default function HomePage() {
         <View style={styles.statusSpacer} />
 
         <View style={styles.header}>
-          <Text style={styles.title}>Sistem Balok</Text>
+          <Text style={styles.title}>Archi Select</Text>
           <Text style={styles.subtitle}>
             Menentukan jenis, dimensi awal, dan material balok yang efisien
             sesuai bentang dan grid struktur.
@@ -138,6 +138,17 @@ export default function HomePage() {
                 </TouchableOpacity>
               ))}
             </View>
+            <View style={styles.functionDescBox}>
+              <MaterialIcons name="edit" size={14} color="#64748b" style={{ marginTop: 4 }} />
+              <TextInput
+                style={styles.functionDescInput}
+                value={customDescription}
+                onChangeText={setCustomDescription}
+                placeholder={`Jelaskan detail ${selectedFunction} di sini...`}
+                placeholderTextColor="#cbd5e1"
+                multiline
+              />
+            </View>
           </View>
 
           <View style={styles.dimRow}>
@@ -150,7 +161,7 @@ export default function HomePage() {
                 value={colSpacingStr}
                 onChangeText={handleColTextChange}
                 keyboardType="numeric"
-                placeholder="0.0000"
+                placeholder="0.00"
                 placeholderTextColor="#cbd5e1"
               />
             </View>
@@ -166,7 +177,7 @@ export default function HomePage() {
                 value={mainSpanStr}
                 onChangeText={handleSpanTextChange}
                 keyboardType="numeric"
-                placeholder="0.0000"
+                placeholder="0.00"
                 placeholderTextColor="#cbd5e1"
               />
             </View>
@@ -206,6 +217,7 @@ export default function HomePage() {
                   buildingType: selectedFunction,
                   mainSpan: spanVal.toString(),
                   columnDistance: colVal.toString(),
+                  buildingDescription: customDescription,
                 },
               });
             }}
@@ -249,7 +261,7 @@ export default function HomePage() {
                   </View>
                   <View style={styles.gridText}>
                     <Text style={styles.gridLabel}>Bentang</Text>
-                    <Text style={styles.gridValue}>{recentProject.main_span.toFixed(4)} m</Text>
+                    <Text style={styles.gridValue}>{recentProject.main_span.toFixed(2)} m</Text>
                   </View>
                 </View>
 
@@ -297,6 +309,26 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 0, paddingBottom: 4 },
   title: { fontSize: 28, fontWeight: "800", color: "#0f172a" },
   subtitle: { color: "#64748b", marginTop: 4 },
+  infoText: { fontSize: 13, color: "#1e40af", backgroundColor: "#eff6ff", padding: 10, borderRadius: 8, marginTop: 12, lineHeight: 18, borderLeftWidth: 4, borderLeftColor: "#3b82f6" },
+  functionDescBox: {
+    marginTop: 10,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    minHeight: 60,
+  },
+  functionDescInput: {
+    fontSize: 14,
+    color: "#475569",
+    lineHeight: 20,
+    flex: 1,
+    paddingTop: 0,
+    textAlignVertical: "top",
+  },
 
   fieldCard: {
     backgroundColor: "#fff",

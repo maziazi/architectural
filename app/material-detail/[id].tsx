@@ -14,8 +14,10 @@ interface MaterialDetail {
     id: string;
     name: string;
     type: string;
-    span_range: string;
-    depth: string;
+    span_min: number;
+    span_max: number;
+    depth_min: number;
+    depth_max: number;
     description: string;
     characteristics: string[];
     suitable_for: string[];
@@ -82,11 +84,19 @@ export default function MaterialDetailPage() {
                     <View style={styles.grid}>
                         <View style={styles.gridItem}>
                             <Text style={styles.label}>Rentang Bentang</Text>
-                            <Text style={styles.value}>{material.span_range}</Text>
+                            <Text style={styles.value}>
+                                {material.span_min && material.span_max
+                                    ? `${material.span_min}m - ${material.span_max === 999 ? '∞' : material.span_max + 'm'}`
+                                    : 'N/A'}
+                            </Text>
                         </View>
                         <View style={styles.gridItem}>
                             <Text style={styles.label}>Kedalaman</Text>
-                            <Text style={styles.value}>{material.depth}</Text>
+                            <Text style={styles.value}>
+                                {material.depth_min && material.depth_max
+                                    ? `${material.depth_min} - ${material.depth_max} cm`
+                                    : material.depth_min ? `${material.depth_min} cm` : 'N/A'}
+                            </Text>
                         </View>
                     </View>
 
