@@ -20,6 +20,7 @@ interface ProjectItem {
   name: string;
   building_type: string;
   main_span: number;
+  description: string;
   created_at: string;
   materials: {
     name: string;
@@ -75,7 +76,7 @@ export default function HistoryPage() {
     const q = query.trim().toLowerCase();
     if (!q) return projects;
     return projects.filter((it) =>
-      (it.name + " " + it.building_type + " " + (it.materials?.name || ""))
+      (it.name + " " + it.building_type + " " + (it.materials?.name || "") + " " + (it.description || ""))
         .toLowerCase()
         .includes(q),
     );

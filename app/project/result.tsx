@@ -19,8 +19,10 @@ interface Material {
     id: string;
     name: string;
     type: string;
-    span_range: string;
-    depth: string;
+    span_min: number;
+    span_max: number;
+    depth_min: number;
+    depth_max: number;
     description: string;
 }
 
@@ -28,11 +30,46 @@ export default function ProjectResultPage() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
-    const { projectName, buildingType, mainSpan, columnDistance } = params;
+    const { projectName, buildingType, mainSpan, columnDistance, buildingDescription } = params;
 
     const [loading, setLoading] = useState(true);
     const [materials, setMaterials] = useState<Material[]>([]);
     const [saving, setSaving] = useState(false);
+    const [expandedLogic, setExpandedLogic] = useState(false);
+
+    // Structural Logic Calculations
+    const span = Number(mainSpan);
+    const spacing = Number(columnDistance);
+    const functionType = String(buildingType);
+
+    // Horizontal Calculation
+    let beamHeightMin = 0;
+    let beamHeightMax = 0;
+    if (functionType === "Hunian") {
+        beamHeightMin = span / 24 * 100;
+        beamHeightMax = span / 22 * 100;
+    } else if (functionType === "Kantor") {
+        beamHeightMin = span / 20 * 100;
+        beamHeightMax = span / 18 * 100;
+    } else if (functionType === "Sekolah" || functionType === "Publik") {
+        beamHeightMin = span / 18 * 100;
+        beamHeightMax = span / 14 * 100;
+    } else {
+        beamHeightMin = span / 20 * 100;
+        beamHeightMax = span / 16 * 100;
+    }
+
+    // Vertical Calculation
+    const tributaryArea = span * spacing;
+    let loadFactor = 1.0;
+    if (functionType === "Hunian") loadFactor = 1.0;
+    else if (functionType === "Kantor") loadFactor = 1.3;
+    else if (functionType === "Sekolah" || functionType === "Publik") loadFactor = 1.6;
+
+    // Simplified Column Area Rule: Approx 0.1% of tributary load in kg? 
+    // Let's use a scale: Area (cm2) = TributaryArea (m2) * factor * 12 (heuristic for preliminary)
+    const columnArea = tributaryArea * loadFactor * 15;
+    const columnDim = Math.sqrt(columnArea);
 
     useEffect(() => {
         fetchRecommendations();
@@ -52,37 +89,12 @@ export default function ProjectResultPage() {
 
             if (!data) return;
 
-            // Simple parsing logic: extract numbers from "6m - 12m" string
-            // If mainSpan is within range, include it.
-            const span = Number(mainSpan);
-
             const recommended = data.filter((m) => {
-                // Regex to find numbers. range typically "min - max"
-                const matches = m.span_range.match(/(\d+(\.\d+)?)/g);
-                if (!matches || matches.length < 1) return true; // Keep if uncertain
-
-                const min = parseFloat(matches[0]);
-                const max = matches.length > 1 ? parseFloat(matches[1]) : 999; // Assume open ended if one number? or just max? usually it's "up to X".
-
-                // If it says "up to 12m", match might be just [12].
-                // If "6m - 12m", matches [6, 12].
-                // If "15m+", matches [15].
-
-                // Heuristic:
-                if (m.span_range.includes("-")) {
-                    return span >= min && span <= max;
-                } else if (m.span_range.includes("+")) {
-                    return span >= min;
-                } else {
-                    // "Up to X" or just "X"
-                    return span <= min;
-                }
+                const min = m.span_min || 0;
+                const max = m.span_max || 999;
+                return span >= min && span <= max;
             });
 
-            // Sort by how close the span is to the middle of the range? 
-            // For now just set them.
-            setMaterials(recommended.length > 0 ? recommended : data); // Fallback to all if none match? Or show empty? User wants recommendations.
-            // Let's show filtered. If empty, the UI shows empty message.
             setMaterials(recommended);
 
         } catch (err) {
@@ -104,6 +116,7 @@ export default function ProjectResultPage() {
                         main_span: Number(mainSpan),
                         column_distance: Number(columnDistance),
                         selected_material_id: materialId,
+                        description: buildingDescription,
                     }
                 ])
                 .select();
@@ -136,14 +149,65 @@ export default function ProjectResultPage() {
 
             <Text style={styles.description}>{item.description}</Text>
 
+            {/* Preliminary Dimensions */}
+            <View style={styles.dimRecommendation}>
+                <Text style={styles.dimTitle}>Rekomendasi Dimensi Sizing</Text>
+                <View style={styles.dimGrid}>
+                    <View style={styles.dimItem}>
+                        <MaterialIcons name="height" size={16} color="#3b82f6" />
+                        <View>
+                            <Text style={styles.dimLabel}>Tinggi Balok</Text>
+                            <Text style={styles.dimValue}>{beamHeightMin.toFixed(0)}-{beamHeightMax.toFixed(0)} cm</Text>
+                        </View>
+                    </View>
+                    <View style={styles.dimItem}>
+                        <MaterialIcons name="grid-view" size={16} color="#10b981" />
+                        <View>
+                            <Text style={styles.dimLabel}>Luas Kolom</Text>
+                            <Text style={styles.dimValue}>{columnArea.toFixed(0)} cm² ({columnDim.toFixed(0)}x{columnDim.toFixed(0)})</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            <TouchableOpacity
+                style={styles.logicToggle}
+                onPress={() => setExpandedLogic(!expandedLogic)}
+            >
+                <Text style={styles.logicToggleText}>Lihat Justifikasi Struktur</Text>
+                <MaterialIcons name={expandedLogic ? "expand-less" : "expand-more"} size={20} color="#64748b" />
+            </TouchableOpacity>
+
+            {expandedLogic && (
+                <View style={styles.logicContent}>
+                    <Text style={styles.logicText}>
+                        • Bangunan <Text style={{ fontWeight: '700' }}>{functionType}</Text> membutuhkan {functionType === "Hunian" ? "kedalaman struktur standar" : "kedalaman struktur lebih besar"} karena beban hidup yang {(functionType === "Hunian") ? "lebih ringan" : "lebih tinggi"}.
+                    </Text>
+                    <Text style={styles.logicText}>
+                        • Bentang {span.toFixed(2)}m dan jarak kolom {spacing.toFixed(2)}m menentukan beban total yang harus dipikul oleh elemen struktur.
+                    </Text>
+                    <Text style={styles.logicNote}>
+                        *Ini hanya estimasi awal (preliminary sizing). Verifikasi oleh Structural Engineer tetap diperlukan.
+                    </Text>
+                </View>
+            )}
+
             <View style={styles.specRow}>
                 <View style={styles.specItem}>
-                    <Text style={styles.specLabel}>Rentang</Text>
-                    <Text style={styles.specValue}>{item.span_range}</Text>
+                    <Text style={styles.specLabel}>Rentang Material</Text>
+                    <Text style={styles.specValue}>
+                        {item.span_min && item.span_max
+                            ? `${item.span_min}m - ${item.span_max === 999 ? '∞' : item.span_max + 'm'}`
+                            : 'N/A'}
+                    </Text>
                 </View>
                 <View style={styles.specItem}>
-                    <Text style={styles.specLabel}>Kedalaman</Text>
-                    <Text style={styles.specValue}>{item.depth}</Text>
+                    <Text style={styles.specLabel}>Kedalaman Standar</Text>
+                    <Text style={styles.specValue}>
+                        {item.depth_min && item.depth_max
+                            ? `${item.depth_min} - ${item.depth_max} cm`
+                            : item.depth_min ? `${item.depth_min} cm` : 'N/A'}
+                    </Text>
                 </View>
             </View>
 
@@ -198,6 +262,11 @@ export default function ProjectResultPage() {
                 <Text style={styles.summaryText}>
                     Untuk {buildingType} dengan bentang {Number(mainSpan).toFixed(2)}m
                 </Text>
+                {buildingDescription && (
+                    <Text style={styles.summaryDesc}>
+                        Detail: {buildingDescription}
+                    </Text>
+                )}
             </View>
 
             {loading ? (
@@ -240,6 +309,7 @@ const styles = StyleSheet.create({
         borderBottomColor: "#dbeafe",
     },
     summaryText: { textAlign: "center", color: "#1e40af", fontWeight: "600" },
+    summaryDesc: { textAlign: "center", color: "#64748b", fontSize: 13, marginTop: 4, fontStyle: "italic" },
 
     listContent: { padding: 16, paddingBottom: 40 },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -300,4 +370,37 @@ const styles = StyleSheet.create({
     selectButtonText: { color: "#fff", fontWeight: "700" },
 
     emptyText: { textAlign: "center", marginTop: 40, color: "#94a3b8" },
+
+    dimRecommendation: {
+        backgroundColor: "#f0f9ff",
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#bae6fd",
+    },
+    dimTitle: { fontSize: 13, fontWeight: "700", color: "#0369a1", marginBottom: 8 },
+    dimGrid: { flexDirection: "row", gap: 16 },
+    dimItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+    dimLabel: { fontSize: 10, color: "#64748b", textTransform: "uppercase" },
+    dimValue: { fontSize: 14, fontWeight: "700", color: "#0f172a" },
+
+    logicToggle: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 8,
+        borderTopWidth: 1,
+        borderTopColor: "#f1f5f9",
+        marginBottom: 4,
+    },
+    logicToggleText: { fontSize: 13, color: "#64748b", fontWeight: "600" },
+    logicContent: {
+        backgroundColor: "#f8fafc",
+        padding: 10,
+        borderRadius: 8,
+        marginBottom: 12,
+    },
+    logicText: { fontSize: 12, color: "#475569", lineHeight: 18, marginBottom: 4 },
+    logicNote: { fontSize: 11, color: "#94a3b8", fontStyle: "italic", marginTop: 4 },
 });
