@@ -17,6 +17,8 @@ interface ProjectDetail {
     building_type: string;
     main_span: number;
     column_distance: number;
+    num_floors?: number;
+    floor_height?: number;
     description: string;
     created_at: string;
     materials: {
@@ -112,12 +114,23 @@ export default function ProjectDetailPage() {
 
                         <View style={styles.grid}>
                             <View style={styles.gridItem}>
-                                <Text style={styles.label}>Bentang Utama</Text>
+                                <Text style={styles.label}>Bentang</Text>
                                 <Text style={styles.value}>{project.main_span.toFixed(2)} m</Text>
                             </View>
                             <View style={styles.gridItem}>
                                 <Text style={styles.label}>Jarak Kolom</Text>
                                 <Text style={styles.value}>{project.column_distance.toFixed(2)} m</Text>
+                            </View>
+                        </View>
+
+                        <View style={[styles.grid, { marginTop: 12 }]}>
+                            <View style={styles.gridItem}>
+                                <Text style={styles.label}>Jumlah Lantai</Text>
+                                <Text style={styles.value}>{project.num_floors || 1} Lt</Text>
+                            </View>
+                            <View style={styles.gridItem}>
+                                <Text style={styles.label}>Tinggi /Lantai</Text>
+                                <Text style={styles.value}>{(project.floor_height || 3.5).toFixed(2)} m</Text>
                             </View>
                         </View>
 
@@ -134,19 +147,15 @@ export default function ProjectDetailPage() {
                             let matBeamHeightMin = 0;
                             let matBeamHeightMax = 0;
 
-                            if (mat.span_min && mat.depth_min) {
-                                matBeamHeightMin = span * (mat.depth_min / mat.span_min);
-                            } else {
-                                matBeamHeightMin = span / 20 * 100;
-                            }
+                            const itemEfficiencyRatio = (mat.depth_min && mat.span_min) ? ((mat.depth_min / 100) / mat.span_min) : (1 / 20);
 
-                            if (mat.span_max && mat.depth_max && mat.span_max < 900) {
-                                matBeamHeightMax = span * (mat.depth_max / mat.span_max);
-                            } else if (mat.span_min && mat.depth_max) {
-                                matBeamHeightMax = span * (mat.depth_max / mat.span_min);
-                            } else {
-                                matBeamHeightMax = matBeamHeightMin * 1.2;
-                            }
+                            matBeamHeightMin = span * (itemEfficiencyRatio * 100);
+
+                            const maxRatio = (mat.depth_max && mat.span_max && mat.span_max < 900)
+                                ? ((mat.depth_max / 100) / mat.span_max)
+                                : (mat.depth_max && mat.span_min) ? ((mat.depth_max / 100) / mat.span_min) : itemEfficiencyRatio * 1.2;
+
+                            matBeamHeightMax = span * (maxRatio * 100);
 
                             // Adjust based on building function (load)
                             if (functionType !== "Hunian") {
@@ -156,18 +165,37 @@ export default function ProjectDetailPage() {
                             }
 
                             // Material-Specific Column Calculation
+                            const floors = project.num_floors || 1;
+                            const height = project.floor_height || 3.5;
                             const tributaryArea = span * spacing;
                             let loadFactor = 1.0;
                             if (functionType === "Hunian") loadFactor = 1.0;
                             else if (functionType === "Kantor") loadFactor = 1.3;
                             else if (functionType === "Sekolah" || functionType === "Publik") loadFactor = 1.6;
 
-                            let matColumnFactor = 15;
-                            if (mat.type === "Baja") matColumnFactor = 4;
-                            else if (mat.type === "Kayu") matColumnFactor = 22;
-                            else if (mat.type === "Bata") matColumnFactor = 35;
+                            let baseTypeFactor = 15;
+                            let standardRatio = 0.05;
 
-                            const matColumnArea = tributaryArea * loadFactor * matColumnFactor;
+                            if (mat.type === "Baja") {
+                                baseTypeFactor = 4;
+                                standardRatio = 0.04;
+                            } else if (mat.type === "Kayu") {
+                                baseTypeFactor = 22;
+                                standardRatio = 0.06;
+                            } else if (mat.type === "Bata") {
+                                baseTypeFactor = 35;
+                                standardRatio = 0.1;
+                            }
+
+                            const adjustment = itemEfficiencyRatio / standardRatio;
+
+                            // Slenderness Factor (Buckling)
+                            let slendernessFactor = 1.0;
+                            if (height > 3.5) {
+                                slendernessFactor = 1.0 + ((height - 3.5) / 0.5) * 0.05;
+                            }
+
+                            const matColumnArea = tributaryArea * loadFactor * baseTypeFactor * adjustment * floors * slendernessFactor;
                             const matColumnDim = Math.sqrt(matColumnArea);
 
                             return (

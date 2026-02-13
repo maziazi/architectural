@@ -288,11 +288,11 @@ export default function ProjectResultPage() {
                         <Text style={styles.summaryDetailValue}>{Number(columnDistance).toFixed(2)} m</Text>
                     </View>
                     <View style={styles.summaryDetailItem}>
-                        <Text style={styles.summaryDetailLabel}>LANTAI</Text>
+                        <Text style={styles.summaryDetailLabel}>JUMLAH LANTAI</Text>
                         <Text style={styles.summaryDetailValue}>{floors} Lt</Text>
                     </View>
                     <View style={styles.summaryDetailItem}>
-                        <Text style={styles.summaryDetailLabel}>TINGGI /LT</Text>
+                        <Text style={styles.summaryDetailLabel}>TINGGI /LANTAI</Text>
                         <Text style={styles.summaryDetailValue}>{height.toFixed(2)} m</Text>
                     </View>
                 </View>
